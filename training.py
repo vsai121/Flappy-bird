@@ -12,10 +12,12 @@ from collections import deque
 ACTIONS = 2 #Up and down
 FRAMESPERACTION=1
 FINAL_EPSILON = 0.001
-OBSERVE = 200000
-REPLAY_MEM = 50000
-GAMMA = 0.9
+OBSERVE = 10000
+EXPLORE = 200000
+REPLAY_MEM = 5000
+GAMMA = 0.99
 GAME='bird'
+EXPLORE
 
 def weight_variable(shape):
 
@@ -69,7 +71,7 @@ def trainNetwork(inp, out, sess):
     argmax = tf.placeholder("float", [None, ACTIONS])
     y = tf.placeholder("float", [None]) #True value
 
-    action = tf.reduce_sum(tf.matmul(out, argmax), reduction_indices = 1)
+    action = tf.reduce_sum(tf.multiply(out, argmax), reduction_indices = 1)
     loss = tf.reduce_mean(tf.square(action - y)) #Squared error loss
 
     train_step = tf.train.AdamOptimizer(1e-6).minimize(loss)
@@ -87,8 +89,10 @@ def trainNetwork(inp, out, sess):
     img = cv.cvtColor(cv.resize(img, (80, 80)), cv.COLOR_BGR2GRAY) #Processing image using OpenCV
     _ , img = cv.threshold(img , 1 , 255 , cv.THRESH_BINARY)
 
-    imgStack = np.stack((img , img , img , img) , axis=2)
+    imgStack = np.stack((img , img , img , img,) , axis=2)
+    print(imgStack.shape)
 
+    saver = tf.train.Saver()
     init = tf.global_variables_initializer()
     sess.run(init)
 
@@ -104,7 +108,7 @@ def trainNetwork(inp, out, sess):
     time = 0
 
     while True:
-        print(imgStack.shape)
+
         out_t = out.eval(feed_dict = {inp : [imgStack]})[0]
         action_t = np.zeros([ACTIONS])
 
@@ -129,17 +133,16 @@ def trainNetwork(inp, out, sess):
         if epsilon > FINAL_EPSILON and time > OBSERVE:
             epsilon = epsilon - (0.1 - FINAL_EPSILON) / EXPLORE
 
-
         nextImg , nextReward , terminal  = state.frame_step(action_t)
 
         nextImg = cv.cvtColor(cv.resize(nextImg, (80, 80)), cv.COLOR_BGR2GRAY) #Processing image using OpenCV
         _ , nextImg = cv.threshold(nextImg , 1 , 255 , cv.THRESH_BINARY)
 
+        nextImg = np.reshape(nextImg , (80 , 80 , 1))
 
-        nextImg = tf.reshape(nextImg , (80 , 80 , 1))
-        nextImgStack = np.concatenate([imgStack[:,:,:3] , nextImg], axis=2)
+        nextImgStack = np.append(nextImg , imgStack[:,:,:3] , axis=2)
 
-        prevObs.append(img , action_t , reward , nextImg , terminal)
+        prevObs.append((imgStack , action_t , reward , nextImgStack , terminal))
 
         if len(prevObs)> REPLAY_MEM:
             prevObs.popleft()
@@ -148,20 +151,22 @@ def trainNetwork(inp, out, sess):
 
             minibatch = random.sample(prevObs , 32)
 
-            curobs = []
+            curobs = np.zeros((32 , imgStack.shape[0] , imgStack.shape[1] , imgStack.shape[2]))
             curaction=[]
             curreward=[]
-            nextobs=[]
+            nextobs = np.zeros((32 , imgStack.shape[0] , imgStack.shape[1] , imgStack.shape[2]))
 
             ybatch =[]
+            i = 0
             for obs in minibatch:
 
-                curobs.append(obs[0])
+                curobs[i , : , : , :] = obs[0]
                 curaction.append(obs[1])
                 curreward.append(obs[2])
-                nextobs.append(obs[3])
+                nextobs[i , : , : , :] = obs[3]
+                i = i+1
 
-            outbatch = out.eval(feed_dict = {inp : nextobs})
+            outbatch = out.eval(feed_dict = {inp :  nextobs})
 
             for i in range(len(minibatch)):
 
@@ -174,24 +179,25 @@ def trainNetwork(inp, out, sess):
                      ybatch.append(curreward[i] + GAMMA * np.max(outbatch[i]))
 
 
+
+            #print(curaction)
             train_step.run(feed_dict = {
                 y : ybatch,
-                action : curaction,
-                inp : curobs}
-            )
+                argmax: curaction,
+                inp : curobs})
 
         img = nextImg
         time+=1
 
-        if t % 10000 == 0:
-            saver.save(sess, 'saved_networks/' + GAME + '-dqn', global_step = t)
+        if time % 10000 == 0:
+            saver.save(sess, 'saved_networks/' + GAME + '-dqn', global_step = time)
 
 
         s = ""
 
-        if t <= OBSERVE:
+        if time <= OBSERVE:
             s = "observe"
-        elif t > OBSERVE and t <= OBSERVE + EXPLORE:
+        elif time > OBSERVE and time <= OBSERVE + EXPLORE:
             s = "explore"
         else:
             s = "train"
