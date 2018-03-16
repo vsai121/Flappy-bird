@@ -12,22 +12,21 @@ from collections import deque
 ACTIONS = 2 #Up and down
 FRAMESPERACTION=1
 FINAL_EPSILON = 0.001
-OBSERVE = 10000
-EXPLORE = 200000
-REPLAY_MEM = 5000
+OBSERVE = 100000
+EXPLORE = 2000000
+REPLAY_MEM = 50000
 GAMMA = 0.99
 GAME='bird'
-EXPLORE
+
 
 def weight_variable(shape):
 
-    w = tf.truncated_normal(shape=shape , stddev=0.1)
+    w = tf.truncated_normal(shape=shape , stddev=0.01)
     return tf.Variable(w)
 
 def bias_variable(shape):
-
-    b = tf.zeros(shape=shape)
-    return tf.Variable(b)
+    initial = tf.constant(0.01, shape = shape)
+    return tf.Variable(initial)
 
 def createNetwork():
 
@@ -104,12 +103,13 @@ def trainNetwork(inp, out, sess):
     else:
         print("Unable to find network weights")
 
-    epsilon = 0.1
+    epsilon = 0.001
     time = 0
 
     while True:
 
         out_t = out.eval(feed_dict = {inp : [imgStack]})[0]
+	print(out_t)
         action_t = np.zeros([ACTIONS])
 
         action_index = 0
@@ -120,7 +120,7 @@ def trainNetwork(inp, out, sess):
             if prob <=epsilon:
                 print("Taking a random action")
                 action_index = random.randrange(ACTIONS)
-                action_t[action_index]=1
+                action_t[random.randrange(ACTIONS)]=1
 
             else:
                 action_index = np.argmax(out_t)
@@ -131,7 +131,7 @@ def trainNetwork(inp, out, sess):
 
 
         if epsilon > FINAL_EPSILON and time > OBSERVE:
-            epsilon = epsilon - (0.1 - FINAL_EPSILON) / EXPLORE
+            epsilon = epsilon - (0.001 - FINAL_EPSILON) / EXPLORE
 
         nextImg , nextReward , terminal  = state.frame_step(action_t)
 
@@ -186,7 +186,7 @@ def trainNetwork(inp, out, sess):
                 argmax: curaction,
                 inp : curobs})
 
-        img = nextImg
+        imgStack = nextImgStack
         time+=1
 
         if time % 10000 == 0:
@@ -205,6 +205,8 @@ def trainNetwork(inp, out, sess):
         print("TIMESTEP", time, "/ STATE", s, \
             "/ EPSILON", epsilon, "/ ACTION", action_index, "/ REWARD", reward, \
             "/ Q_MAX %e" % np.max(out_t))
+
+	
 
 
 
