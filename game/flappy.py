@@ -7,7 +7,6 @@ import pygame.surfarray as surfarray
 from pygame.locals import *
 from itertools import cycle
 
-
 FPS = 30
 SCREENWIDTH  = 288
 SCREENHEIGHT = 512
@@ -16,8 +15,6 @@ pygame.init()
 FPSCLOCK = pygame.time.Clock()
 SCREEN = pygame.display.set_mode((SCREENWIDTH, SCREENHEIGHT))
 pygame.display.set_caption('Flappy Bird')
-
-
 
 IMAGES, SOUNDS, HITMASKS = flappy_utils.load()
 PIPEGAPSIZE = 100 # gap between upper and lower part of pipe

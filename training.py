@@ -108,8 +108,9 @@ def trainNetwork(inp, out, sess):
 
     while True:
 
+	#print(imgStack)
         out_t = out.eval(feed_dict = {inp : [imgStack]})[0]
-	print(out_t)
+	   # print(out_t)
         action_t = np.zeros([ACTIONS])
 
         action_index = 0
